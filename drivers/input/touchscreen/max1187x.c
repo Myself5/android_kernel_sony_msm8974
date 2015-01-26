@@ -755,7 +755,7 @@ static void report_down(struct data *ts,
 		id, x, y, z, touch_major, touch_minor, orientation);
 }
 
-static void report_up(struct data *ts, int id,
+static void report_up(struct data *ts,
 			struct max1187x_touch_report_extended *e)
 {
 	struct device *dev = &ts->client->dev;
@@ -772,12 +772,6 @@ static void report_up(struct data *ts, int id,
 		else
 			tool_type = MT_TOOL_PEN;
 	} else {
-		if (raw_tool_type == MXM_TOOL_GLOVE) {
-			if (ts->pdata->glove_enabled)
-				z += MXM_PRESSURE_SQRT_MAX + 1;
-			else
-				return;
-		}
 		tool_type = MT_TOOL_FINGER;
 	}
 
@@ -803,7 +797,6 @@ static void invalidate_all_fingers(struct data *ts)
 
 	dev_dbg(dev, "event: UP all\n");
 	if (ts->input_dev->users) {
-		input_mt_slot(ts->input_dev);
 		input_sync(ts->input_dev);
 	}
 	ts->list_finger_ids = 0;
