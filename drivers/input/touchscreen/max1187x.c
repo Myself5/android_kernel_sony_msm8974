@@ -761,8 +761,25 @@ static void report_up(struct data *ts, int id,
 	struct device *dev = &ts->client->dev;
 	struct input_dev *idev = ts->input_dev;
 	u16 raw_tool_type = e->tool_type;
+	u16 tool_type;
+	u16 id = e->finger_id;
 	u16 idbit = 1 << id;
 	bool valid;
+
+	if (raw_tool_type == MXM_TOOL_PEN) {
+		if (ts->pdata->report_pen_as_finger)
+			tool_type = MT_TOOL_FINGER;
+		else
+			tool_type = MT_TOOL_PEN;
+	} else {
+		if (raw_tool_type == MXM_TOOL_GLOVE) {
+			if (ts->pdata->glove_enabled)
+				z += MXM_PRESSURE_SQRT_MAX + 1;
+			else
+				return;
+		}
+		tool_type = MT_TOOL_FINGER;
+	}
 
 	if (!(ts->list_finger_ids & idbit))
 		return;
@@ -786,8 +803,7 @@ static void invalidate_all_fingers(struct data *ts)
 
 	dev_dbg(dev, "event: UP all\n");
 	if (ts->input_dev->users) {
-		input_mt_slot(ts->input_dev, id);
-		input_mt_report_slot_state(ts->input_dev, tool_type, false);
+		input_mt_slot(ts->input_dev);
 		input_sync(ts->input_dev);
 	}
 	ts->list_finger_ids = 0;
