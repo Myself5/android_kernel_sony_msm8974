@@ -671,7 +671,7 @@ static void report_down(struct data *ts,
 {
 	struct max1187x_pdata *pdata = ts->pdata;
 	struct device *dev = &ts->client->dev;
-	struct input_dev *idev = ts->input_dev;
+	struct input_dev *idev;
 	u32 xcell = pdata->lcd_x / pdata->num_sensor_x;
 	u32 ycell = pdata->lcd_y / pdata->num_sensor_y;
 	u16 x = e->x;
@@ -755,16 +755,18 @@ static void report_down(struct data *ts,
 		id, x, y, z, touch_major, touch_minor, orientation);
 }
 
-static void report_up(struct data *ts,
+static void report_up(struct data *ts, int id,
 			struct max1187x_touch_report_extended *e)
 {
 	struct device *dev = &ts->client->dev;
-	struct input_dev *idev = ts->input_dev;
+	struct input_dev *idev;
 	u16 raw_tool_type = e->tool_type;
 	u16 tool_type;
-	u16 id = e->finger_id;
 	u16 idbit = 1 << id;
 	bool valid;
+
+	if (!(ts->list_finger_ids & idbit))
+		return;
 
 	if (raw_tool_type == MXM_TOOL_PEN) {
 		if (ts->pdata->report_pen_as_finger)
@@ -775,13 +777,11 @@ static void report_up(struct data *ts,
 		tool_type = MT_TOOL_FINGER;
 	}
 
-	if (!(ts->list_finger_ids & idbit))
-		return;
-
 	valid = idev->users > 0;
-	if (valid)
+	if (valid) {
 		input_mt_slot(idev, id);
 		input_mt_report_slot_state(idev, tool_type, false);
+	}
 	dev_dbg(dev, "event: UP%s%s %u\n",
 		valid ? " " : "#",
 		raw_tool_type == MXM_TOOL_FINGER ? "Finger" :
@@ -791,15 +791,40 @@ static void report_up(struct data *ts,
 	ts->list_finger_ids &= ~idbit;
 }
 
+static void report_sync(struct data *ts)
+{
+	if (ts->input_dev->users && (ts->used_tools & (1 << MT_TOOL_FINGER)))
+		input_sync(ts->input_dev);
+	if (ts->input_pen->users && (ts->used_tools & (1 << MT_TOOL_PEN)))
+		input_sync(ts->input_pen);
+}
+
 static void invalidate_all_fingers(struct data *ts)
 {
 	struct device *dev = &ts->client->dev;
+	u32 i;
 
 	dev_dbg(dev, "event: UP all\n");
+	ts->used_tools = 0;
 	if (ts->input_dev->users) {
+		for (i = 0; i < MXM_TOUCH_COUNT_MAX; i++) {
+			input_mt_slot(ts->input_dev, i);
+			input_mt_report_slot_state(ts->input_dev,
+						   MT_TOOL_FINGER, false);
+		}
 		input_sync(ts->input_dev);
 	}
+	if (ts->input_pen->users) {
+		for (i = 0; i < MXM_TOUCH_COUNT_MAX; i++) {
+			input_mt_slot(ts->input_pen, i);
+			input_mt_report_slot_state(ts->input_pen,
+						   MT_TOOL_PEN, false);
+		}
+		input_sync(ts->input_pen);
+	}
 	ts->list_finger_ids = 0;
+	ts->list_tool_ids = 0;
+	ts->used_tools = 0;
 }
 
 static void reinit_chip_settings(struct data *ts)
@@ -900,17 +925,19 @@ static void process_report(struct data *ts, u16 *buf)
 	}
 
 	ts->curr_finger_ids = 0;
+	ts->used_tools = 0;
 	reporte = (struct max1187x_touch_report_extended *)
 		((u8 *)buf + sizeof(*header));
 	for (i = 0; i < header->touch_count; i++, reporte++)
 		report_down(ts, reporte);
 	for (i = 0; i < MXM_TOUCH_COUNT_MAX; i++) {
 		if (!(ts->curr_finger_ids & (1 << i)))
-			report_up(ts, reporte);
+			report_up(ts, i, reporte);
 	}
 	if (ts->input_dev->users)
 		input_sync(ts->input_dev);
 	ts->list_finger_ids = ts->curr_finger_ids;
+	ts->list_tool_ids = ts->curr_tool_ids;
 end:
 	return;
 }
