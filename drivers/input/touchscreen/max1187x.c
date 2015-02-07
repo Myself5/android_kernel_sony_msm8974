@@ -906,7 +906,7 @@ static void process_report(struct data *ts, u16 *buf)
 		report_down(ts, reporte);
 	for (i = 0; i < MXM_TOUCH_COUNT_MAX; i++) {
 		if (!(ts->curr_finger_ids & (1 << i)))
-			report_up(ts, i, reporte);
+			report_up(ts, reporte);
 	}
 	if (ts->input_dev->users)
 		input_sync(ts->input_dev);
