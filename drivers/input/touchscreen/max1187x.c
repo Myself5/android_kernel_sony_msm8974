@@ -797,7 +797,6 @@ static void invalidate_all_fingers(struct data *ts)
 	u32 i;
 
 	dev_dbg(dev, "event: UP all\n");
-	ts->used_tools = 0;
 	if (ts->input_dev->users) {
 		for (i = 0; i < MXM_TOUCH_COUNT_MAX; i++) {
 			input_mt_slot(ts->input_dev, i);
@@ -806,17 +805,7 @@ static void invalidate_all_fingers(struct data *ts)
 		}
 		input_sync(ts->input_dev);
 	}
-	if (ts->input_pen->users) {
-		for (i = 0; i < MXM_TOUCH_COUNT_MAX; i++) {
-			input_mt_slot(ts->input_pen, i);
-			input_mt_report_slot_state(ts->input_pen,
-						   MT_TOOL_PEN, false);
-		}
-		input_sync(ts->input_pen);
-	}
 	ts->list_finger_ids = 0;
-	ts->list_tool_ids = 0;
-	ts->used_tools = 0;
 }
 
 static void reinit_chip_settings(struct data *ts)
@@ -917,7 +906,6 @@ static void process_report(struct data *ts, u16 *buf)
 	}
 
 	ts->curr_finger_ids = 0;
-	ts->used_tools = 0;
 	reporte = (struct max1187x_touch_report_extended *)
 		((u8 *)buf + sizeof(*header));
 	for (i = 0; i < header->touch_count; i++, reporte++)
@@ -929,7 +917,6 @@ static void process_report(struct data *ts, u16 *buf)
 	if (ts->input_dev->users)
 		input_sync(ts->input_dev);
 	ts->list_finger_ids = ts->curr_finger_ids;
-	ts->list_tool_ids = ts->curr_tool_ids;
 end:
 	return;
 }
