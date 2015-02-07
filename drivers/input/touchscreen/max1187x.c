@@ -791,14 +791,6 @@ static void report_up(struct data *ts, int id,
 	ts->list_finger_ids &= ~idbit;
 }
 
-static void report_sync(struct data *ts)
-{
-	if (ts->input_dev->users && (ts->used_tools & (1 << MT_TOOL_FINGER)))
-		input_sync(ts->input_dev);
-	if (ts->input_pen->users && (ts->used_tools & (1 << MT_TOOL_PEN)))
-		input_sync(ts->input_pen);
-}
-
 static void invalidate_all_fingers(struct data *ts)
 {
 	struct device *dev = &ts->client->dev;
