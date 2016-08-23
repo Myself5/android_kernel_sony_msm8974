@@ -80,10 +80,14 @@ int cap_netlink_send(struct sock *sk, struct sk_buff *skb)
 int cap_capable(const struct cred *cred, struct user_namespace *targ_ns,
 		int cap, int audit)
 {
+	uid_t uid = current_uid();
+
 #ifdef CONFIG_ANDROID_PARANOID_NETWORK
-	if (cap == CAP_NET_RAW && in_egroup_p(AID_NET_RAW))
+	if (cap == CAP_NET_RAW && (in_egroup_p(AID_NET_RAW) ||
+	    uid == 0))
 		return 0;
-	if (cap == CAP_NET_ADMIN && in_egroup_p(AID_NET_ADMIN))
+	if (cap == CAP_NET_ADMIN && (in_egroup_p(AID_NET_ADMIN) ||
+	    uid == 0))
 		return 0;
 #endif
 
